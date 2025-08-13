@@ -1,3 +1,4 @@
+# import necessary libraries
 import pygame
 import random
 import sys
@@ -8,102 +9,138 @@ pygame.init()
 pygame.mixer.init()
 
 # Screen setup
-WIDTH, HEIGHT = 600, 400
+WIDTH, HEIGHT = 800, 600
 screen = pygame.display.set_mode((WIDTH, HEIGHT))
-pygame.display.set_caption("Catch the Chicken Game")
+pygame.display.set_caption("Monster Shark Game")
 clock = pygame.time.Clock()
+
+# Font
+font = pygame.font.SysFont("Arial", 24)
 
 # Asset directory
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 ASSET_DIR = os.path.join(BASE_DIR, "assets")
 
 # Load and scale images
-player_img = pygame.image.load(os.path.join(ASSET_DIR, "player.png"))
-player_img = pygame.transform.scale(player_img, (50, 50))
-hen_img = pygame.image.load(os.path.join(ASSET_DIR, "chicken.png"))
-hen_img = pygame.transform.scale(hen_img, (40, 40))
+shark_img = pygame.image.load(os.path.join(ASSET_DIR, "shark.png"))
+shark_img = pygame.transform.scale(shark_img, (150, 150))
 
-# Load sound effects
+fish_img = pygame.image.load(os.path.join(ASSET_DIR, "fish.png")).convert_alpha()
+fish_img = pygame.transform.scale(fish_img, (60, 60))
+
+background_img = pygame.image.load(os.path.join(ASSET_DIR, "background.png")).convert()
+background_img = pygame.transform.scale(background_img, (WIDTH, HEIGHT))
+
+grass = pygame.image.load(os.path.join(ASSET_DIR, "grass.png")).convert_alpha()
+grass = pygame.transform.scale(grass, (WIDTH, 100))
+grass_y = HEIGHT - grass.get_height() + 30
+
+# Sound effects
 catch_sound = pygame.mixer.Sound(os.path.join(ASSET_DIR, "catch.wav"))
-miss_sound = pygame.mixer.Sound(os.path.join(ASSET_DIR, "missed.wav"))
 gameover_sound = pygame.mixer.Sound(os.path.join(ASSET_DIR, "gameover.wav"))
 
 # Rectangles
-player_rect = player_img.get_rect(topleft=(275, 350))
-hen_rect = hen_img.get_rect(topleft=(random.randint(0, WIDTH - 40), random.randint(0, HEIGHT - 200)))
+shark_rect = shark_img.get_rect(topleft=(275, 350))
+mouth_rect = pygame.Rect(
+    shark_rect.centerx - 10,
+    shark_rect.top + 10,
+    20,
+    shark_rect.height - 20
+)
+fish_rect = fish_img.get_rect(
+    topleft=(random.randint(0, WIDTH - 60), random.randint(0, HEIGHT - 60))
+)
 
 # Game variables
-chicken_speed = 8
 score = 0
 missed = 0
-max_missed = 60
-font = pygame.font.SysFont("Arial", 24)
+base_speed = 5
+max_missed = 100
+shark_speed = base_speed + 5
+fish_speed = base_speed + 3
 
 # Game state
 running = True
 game_over = False
 
+# Game loop
 while running:
-    clock.tick(60)
-    screen.fill((200, 255, 200))
+    dt = clock.tick(60)
 
-    # Handle events
+    screen.blit(background_img, (0, 0))
+    screen.blit(grass, (0, grass_y))
+
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             running = False
         if game_over and event.type == pygame.KEYDOWN and event.key == pygame.K_r:
-            # Reset game
             score = 0
             missed = 0
             game_over = False
-            player_rect.topleft = (275, 350)
-            hen_rect.topleft = (random.randint(0, WIDTH - 40), random.randint(0, HEIGHT - 200))
+            shark_rect.topleft = (275, 350)
+            fish_rect.topleft = (
+                random.randint(0, WIDTH - 60),
+                random.randint(0, grass_y - 60)
+            )
+            
 
     if not game_over:
-        # Player movement
         keys = pygame.key.get_pressed()
-        if keys[pygame.K_LEFT] and player_rect.left > 0:
-            player_rect.x -= 5
-        if keys[pygame.K_RIGHT] and player_rect.right < WIDTH:
-            player_rect.x += 5
-        if keys[pygame.K_UP] and player_rect.top > 0:
-            player_rect.y -= 5
-        if keys[pygame.K_DOWN] and player_rect.bottom < HEIGHT:
-            player_rect.y += 5
+        if keys[pygame.K_LEFT] and shark_rect.left > 0:
+            shark_rect.x -= shark_speed
+        if keys[pygame.K_RIGHT] and shark_rect.right < WIDTH:
+            shark_rect.x += shark_speed
+        if keys[pygame.K_UP] and shark_rect.top > 0:
+            shark_rect.y -= shark_speed
+        if keys[pygame.K_DOWN] and shark_rect.bottom < grass_y:
+            shark_rect.y += shark_speed
 
-        # Chicken movement
-        hen_rect.x += chicken_speed
-        if hen_rect.x > WIDTH:
-            hen_rect.x = 0
-            hen_rect.y = random.randint(0, HEIGHT - hen_rect.height)
+        # Stay above grass
+        if shark_rect.bottom > grass_y:
+            shark_rect.bottom = grass_y
+        if fish_rect.bottom > grass_y:
+            fish_rect.bottom = grass_y
+
+
+        # Update mouth position
+        mouth_width = 30
+        mouth_height = 38
+        mouth_rect.update(
+            shark_rect.left - 10,
+            shark_rect.centery - mouth_height // 2,
+            mouth_width,
+            mouth_height
+        )
+
+        # Move fish
+        fish_rect.x += fish_speed + score // 10  # Increase speed with score
+        if fish_rect.x > WIDTH:
+            fish_rect.x = 0
+            fish_rect.y = random.randint(0, grass_y - 60)
             missed += 1
-            miss_sound.play()
 
-        # Collision detection
-        if player_rect.colliderect(hen_rect):
+        if mouth_rect.colliderect(fish_rect):
             score += 1
-            hen_rect.x = 0
-            hen_rect.y = random.randint(0, HEIGHT - hen_rect.height)
+            fish_rect.x = 0
+            fish_rect.y = random.randint(0, grass_y - 60)
             catch_sound.play()
 
-        # Game over condition
         if missed >= max_missed:
             game_over = True
             gameover_sound.play()
 
-    # Draw game
-    screen.blit(player_img, player_rect)
-    screen.blit(hen_img, hen_rect)
-
-    screen.blit(font.render(f"Score: {score}", True, (0, 0, 0)), (10, 10))
-    screen.blit(font.render(f"Missed: {missed}/{max_missed}", True, (255, 0, 0)), (10, 40))
+    # Draw game elements
+    screen.blit(shark_img, shark_rect)
+    screen.blit(fish_img, fish_rect)
+    screen.blit(font.render(f"Score: {score}", True, (255, 255, 255)), (10, 10))
+    screen.blit(font.render(f"Missed: {missed}/{max_missed}", True, (0, 255, 0)), (10, 40))
 
     if game_over:
         game_over_text = font.render("Game Over! Press R to Restart", True, (255, 0, 0))
         screen.blit(game_over_text, (WIDTH // 2 - game_over_text.get_width() // 2, HEIGHT // 2))
-
+    
     pygame.display.flip()
 
-# Quit
+# Quit game
 pygame.quit()
 sys.exit()
