@@ -1,4 +1,3 @@
-# import necessary libraries
 import pygame
 import random
 import sys
@@ -9,138 +8,115 @@ pygame.init()
 pygame.mixer.init()
 
 # Screen setup
-WIDTH, HEIGHT = 800, 600
+WIDTH, HEIGHT = 600, 400
 screen = pygame.display.set_mode((WIDTH, HEIGHT))
-pygame.display.set_caption("Monster Shark Game")
+pygame.display.set_caption("Monster Shark Catch Fish")
 clock = pygame.time.Clock()
-
-# Font
-font = pygame.font.SysFont("Arial", 24)
 
 # Asset directory
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 ASSET_DIR = os.path.join(BASE_DIR, "assets")
 
 # Load and scale images
-shark_img = pygame.image.load(os.path.join(ASSET_DIR, "shark.png"))
-shark_img = pygame.transform.scale(shark_img, (150, 150))
-
-fish_img = pygame.image.load(os.path.join(ASSET_DIR, "fish.png")).convert_alpha()
-fish_img = pygame.transform.scale(fish_img, (60, 60))
-
-background_img = pygame.image.load(os.path.join(ASSET_DIR, "background.png")).convert()
+player_img = pygame.image.load(os.path.join(ASSET_DIR, "shark.png"))
+player_img = pygame.transform.scale(player_img, (90, 90))  # make shark bigger
+fish_img = pygame.image.load(os.path.join(ASSET_DIR, "fish.png"))
+fish_img = pygame.transform.scale(fish_img, (40, 40))
+background_img = pygame.image.load(os.path.join(ASSET_DIR, "background.png"))
 background_img = pygame.transform.scale(background_img, (WIDTH, HEIGHT))
 
-grass = pygame.image.load(os.path.join(ASSET_DIR, "grass.png")).convert_alpha()
-grass = pygame.transform.scale(grass, (WIDTH, 100))
-grass_y = HEIGHT - grass.get_height() + 30
-
-# Sound effects
+# Load sound effects
 catch_sound = pygame.mixer.Sound(os.path.join(ASSET_DIR, "catch.wav"))
+
 gameover_sound = pygame.mixer.Sound(os.path.join(ASSET_DIR, "gameover.wav"))
 
 # Rectangles
-shark_rect = shark_img.get_rect(topleft=(275, 350))
-mouth_rect = pygame.Rect(
-    shark_rect.centerx - 10,
-    shark_rect.top + 10,
-    20,
-    shark_rect.height - 20
-)
-fish_rect = fish_img.get_rect(
-    topleft=(random.randint(0, WIDTH - 60), random.randint(0, HEIGHT - 60))
-)
+player_rect = player_img.get_rect(topleft=(255, 310))  # adjust position for bigger shark
+fish_rect = fish_img.get_rect(topleft=(random.randint(0, WIDTH - 40), random.randint(0, HEIGHT - 200)))
 
 # Game variables
+fish_speed = 8
 score = 0
 missed = 0
-base_speed = 5
 max_missed = 100
-shark_speed = base_speed + 5
-fish_speed = base_speed + 3
+font = pygame.font.SysFont("Arial", 24)
 
 # Game state
 running = True
 game_over = False
 
-# Game loop
 while running:
-    dt = clock.tick(60)
+    clock.tick(60)
+    screen.fill((200, 255, 200))
 
-    screen.blit(background_img, (0, 0))
-    screen.blit(grass, (0, grass_y))
-
+    # Handle events
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             running = False
         if game_over and event.type == pygame.KEYDOWN and event.key == pygame.K_r:
+            # Reset game
             score = 0
             missed = 0
             game_over = False
-            shark_rect.topleft = (275, 350)
-            fish_rect.topleft = (
-                random.randint(0, WIDTH - 60),
-                random.randint(0, grass_y - 60)
-            )
-            
+            player_rect.topleft = (255, 310)
+            fish_rect.topleft = (random.randint(0, WIDTH - 40), random.randint(0, HEIGHT - 200))
 
     if not game_over:
+        # Player movement
         keys = pygame.key.get_pressed()
-        if keys[pygame.K_LEFT] and shark_rect.left > 0:
-            shark_rect.x -= shark_speed
-        if keys[pygame.K_RIGHT] and shark_rect.right < WIDTH:
-            shark_rect.x += shark_speed
-        if keys[pygame.K_UP] and shark_rect.top > 0:
-            shark_rect.y -= shark_speed
-        if keys[pygame.K_DOWN] and shark_rect.bottom < grass_y:
-            shark_rect.y += shark_speed
+        if keys[pygame.K_LEFT] and player_rect.left > 0:
+            player_rect.x -= 5
+        if keys[pygame.K_RIGHT] and player_rect.right < WIDTH:
+            player_rect.x += 5
+        if keys[pygame.K_UP] and player_rect.top > 0:
+            player_rect.y -= 5
+        if keys[pygame.K_DOWN] and player_rect.bottom < HEIGHT:
+            player_rect.y += 5
 
-        # Stay above grass
-        if shark_rect.bottom > grass_y:
-            shark_rect.bottom = grass_y
-        if fish_rect.bottom > grass_y:
-            fish_rect.bottom = grass_y
-
-
-        # Update mouth position
-        mouth_width = 30
-        mouth_height = 38
-        mouth_rect.update(
-            shark_rect.left - 10,
-            shark_rect.centery - mouth_height // 2,
-            mouth_width,
-            mouth_height
-        )
-
-        # Move fish
-        fish_rect.x += fish_speed + score // 10  # Increase speed with score
+        # Fish movement
+        fish_rect.x += fish_speed
         if fish_rect.x > WIDTH:
             fish_rect.x = 0
-            fish_rect.y = random.randint(0, grass_y - 60)
+            fish_rect.y = random.randint(0, HEIGHT - fish_rect.height)
             missed += 1
 
-        if mouth_rect.colliderect(fish_rect):
+    # Define mouth area
+    mouth_width = player_rect.width // 4  # smaller width for left mouth
+    mouth_height = player_rect.height // 7  # small height for mouth
+    mouth_x = player_rect.left - 2  # move even further left
+    mouth_y = player_rect.top + player_rect.height // 2 - 10  # move higher
+    mouth_width = player_rect.width // 6
+    mouth_height = player_rect.height // 5
+    mouth_rect = pygame.Rect(mouth_x, mouth_y, mouth_width, mouth_height)
+
+    if mouth_rect.collidepoint(fish_rect.center):
             score += 1
             fish_rect.x = 0
-            fish_rect.y = random.randint(0, grass_y - 60)
+            fish_rect.y = random.randint(0, HEIGHT - fish_rect.height)
             catch_sound.play()
 
-        if missed >= max_missed:
+        # Game over condition
+    if missed >= max_missed:
             game_over = True
             gameover_sound.play()
 
-    # Draw game elements
-    screen.blit(shark_img, shark_rect)
+    # Draw game
+    screen.blit(background_img, (0, 0))
+    screen.blit(player_img, player_rect)
     screen.blit(fish_img, fish_rect)
-    screen.blit(font.render(f"Score: {score}", True, (255, 255, 255)), (10, 10))
-    screen.blit(font.render(f"Missed: {missed}/{max_missed}", True, (0, 255, 0)), (10, 40))
+    # (Mouth area frame removed for production)
+
+    screen.blit(font.render(f"Score: {score}", True, (0, 0, 0)), (10, 10))
+    screen.blit(font.render(f"Missed: {missed}/{max_missed}", True, (255, 0, 0)), (10, 40))
 
     if game_over:
         game_over_text = font.render("Game Over! Press R to Restart", True, (255, 0, 0))
         screen.blit(game_over_text, (WIDTH // 2 - game_over_text.get_width() // 2, HEIGHT // 2))
     
+
+
     pygame.display.flip()
 
-# Quit game
+# Quit
 pygame.quit()
 sys.exit()
